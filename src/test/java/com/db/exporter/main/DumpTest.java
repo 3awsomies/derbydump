@@ -18,11 +18,11 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.db.exporter.config.Configuration;
+import com.db.exporter.reader.DatabaseReader;
 import com.db.exporter.utils.DBConnectionManager;
 import com.db.exporter.utils.HexUtils;
 import com.db.exporter.utils.IOUtils;
 import com.db.exporter.utils.StringUtils;
-import com.db.exporter.writer.DatabaseReader;
 
 public class DumpTest {
 

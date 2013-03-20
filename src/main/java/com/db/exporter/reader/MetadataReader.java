@@ -1,4 +1,4 @@
-package com.db.exporter.reader.impl;
+package com.db.exporter.reader;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;

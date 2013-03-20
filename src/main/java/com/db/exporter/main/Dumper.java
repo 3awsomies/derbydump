@@ -7,8 +7,8 @@ import org.apache.log4j.Logger;
 
 import com.db.exporter.config.Configuration;
 import com.db.exporter.config.PropertyLoader;
+import com.db.exporter.reader.DatabaseReader;
 import com.db.exporter.utils.IOUtils;
-import com.db.exporter.writer.DatabaseReader;
 
 
 public class Dumper {

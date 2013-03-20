@@ -1,4 +1,4 @@
-package com.db.exporter.writer;
+package com.db.exporter.reader;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -22,8 +22,6 @@ import com.db.exporter.beans.Column;
 import com.db.exporter.beans.Database;
 import com.db.exporter.beans.Table;
 import com.db.exporter.config.Configuration;
-import com.db.exporter.reader.IDatabaseReader;
-import com.db.exporter.reader.impl.MetadataReader;
 import com.db.exporter.utils.DBConnectionManager;
 import com.db.exporter.utils.HexUtils;
 import com.db.exporter.utils.StringUtils;
