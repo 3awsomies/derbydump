@@ -3,6 +3,7 @@ package com.db.exporter.writer;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.Reader;
+import java.io.Writer;
 import java.math.BigDecimal;
 import java.sql.Clob;
 import java.sql.Connection;
@@ -33,13 +34,13 @@ import com.db.exporter.utils.StringUtils;
  */
 public class DatabaseReader implements IDatabaseReader, Runnable {
 
-	private IBuffer m_buffer;
+	private Writer m_buffer;
 	private Configuration m_config;
 	public final static String SEPARATOR = ",";
 	private final static int MAX_ALLOWED_ROWS = 100; 
 	private static final Logger LOGGER = Logger.getLogger(DatabaseReader.class);
 
-	public DatabaseReader(Configuration config, IBuffer buffer) {
+	public DatabaseReader(Configuration config, Writer buffer) {
 		m_buffer = buffer;
 		m_config = config;
 	}
@@ -58,7 +59,13 @@ public class DatabaseReader implements IDatabaseReader, Runnable {
 		// creating a skeleton of tables and columns present in the database
 		MetadataReader metadata = new MetadataReader();
 		Database database = metadata.readDatabase(connection);
-		getInternalData(database.getTables(), connection, schema);
+		try {
+			synchronized (m_buffer) {
+				getInternalData(database.getTables(), connection, schema);
+			}
+		} catch (IOException e1) {
+			LOGGER.debug("Write error: "+ e1.getMessage());
+		}
 		if (connection != null) {
 			try {
 				connection.close();
@@ -74,9 +81,10 @@ public class DatabaseReader implements IDatabaseReader, Runnable {
 	 * 
 	 * @param tables
 	 * @param connection
+	 * @throws IOException 
 	 */
 	private void getInternalData(List<Table> tables, Connection connection,
-			String schema) {
+			String schema) throws IOException {
 		int numOfTables = tables.size();
 		Statement statement = null;
 		ResultSet resultSet = null;
@@ -118,15 +126,15 @@ public class DatabaseReader implements IDatabaseReader, Runnable {
 						        initTableInsert.append(", ");
 						    }
 						}
-						m_buffer.add(initTableInsert.toString());
+						m_buffer.append(initTableInsert.toString());
 					}
 					// TODO Logic needs to be refined for end of table data.
 					if (counter == numOfRows - 1)
 						t_flag = true;
-					m_buffer.add("(");
+					m_buffer.append("(");
 					for (int c_index = 0; c_index < numOfColumns; c_index++) {
 						if (c_index > 0) {
-							m_buffer.add(SEPARATOR);
+							m_buffer.append(SEPARATOR);
 						}
 						Column column = columns.get(c_index);
 						String columnName = column.getColumnName();
@@ -136,110 +144,99 @@ public class DatabaseReader implements IDatabaseReader, Runnable {
 						case Types.VARBINARY:
 						case Types.BLOB: {
 							byte[] bytes = resultSet.getBytes(columnName);
-							m_buffer.add(bytes == null ? null : processBinaryData(bytes));
+							m_buffer.append(bytes == null ? null : processBinaryData(bytes));
 							break;
 						}
 						case Types.CLOB: {
 							Clob clob = resultSet.getClob(columnName);
-							m_buffer.add(clob == null ? null : processClobData(clob));
+							m_buffer.append(clob == null ? null : processClobData(clob));
 							break;
 						}
 						case Types.CHAR:
 						case Types.LONGNVARCHAR:
 						case Types.VARCHAR: {
 							String stringData = resultSet.getString(columnName);
-							m_buffer.add(processStringData(stringData));
+							m_buffer.append(processStringData(stringData));
 							break;
 						}
 						case Types.TIME: {
 							Time obj = resultSet.getTime(columnName);
 							String timeData = obj == null ? null : obj
 									.toString();
-							m_buffer.add(processStringData(timeData));
+							m_buffer.append(processStringData(timeData));
 							break;
 						}
 						case Types.DATE: {
 							Date obj = resultSet.getDate(columnName);
 							String dateData = obj == null ? null : obj
 									.toString();
-							m_buffer.add(processStringData(dateData));
+							m_buffer.append(processStringData(dateData));
 							break;
 						}
 						case Types.TIMESTAMP: {
 							Timestamp obj = resultSet.getTimestamp(columnName);
 							String stringData = obj == null ? null : obj
 									.toString();
-							m_buffer.add(processStringData(stringData));
+							m_buffer.append(processStringData(stringData));
 							break;
 						}
 						case Types.SMALLINT:
 							Short shortData = resultSet.getShort(columnName);
-							m_buffer.add(shortData == null ? null : String
+							m_buffer.append(shortData == null ? null : String
 									.valueOf(shortData));
 							break;
 						case Types.BIGINT:
 							Long longData = resultSet.getLong(columnName);
-							m_buffer.add(longData == null ? null : String
+							m_buffer.append(longData == null ? null : String
 									.valueOf(longData));
 							break;
 						case Types.INTEGER: {
 							int data = resultSet.getInt(columnName);
-							m_buffer.add(String.valueOf(data));
+							m_buffer.append(String.valueOf(data));
 							break;
 						}
 						case Types.NUMERIC:
 						case Types.DECIMAL:
 							BigDecimal decimalData = resultSet
 									.getBigDecimal(columnName);
-							m_buffer.add(decimalData == null ? null : String
+							m_buffer.append(decimalData == null ? null : String
 									.valueOf(decimalData));
 							break;
 						case Types.REAL:
 						case Types.FLOAT:
 							Float floatData = resultSet.getFloat(columnName);
-							m_buffer.add(floatData == null ? null : String
+							m_buffer.append(floatData == null ? null : String
 									.valueOf(floatData));
 							break;
 						case Types.DOUBLE:
 							Double doubleData = resultSet.getDouble(columnName);
-							m_buffer.add(doubleData == null ? null : String
+							m_buffer.append(doubleData == null ? null : String
 									.valueOf(doubleData));
 							break;
 						default: {
 							Object object = resultSet.getObject(columnName);
-							m_buffer.add(object == null ? null : object
+							m_buffer.append(object == null ? null : object
 									.toString());
 						}
 						}
 					}
 					counter++;
 					if (!t_flag && counter%MAX_ALLOWED_ROWS != 0){
-						m_buffer.add("),\n");
+						m_buffer.append("),\n");
 					}
 					else if(!t_flag){
-					    m_buffer.add(");\n").add(
+					    m_buffer.append(");\n").append(
                                 StringUtils.getUnLockStatement(tableName));
-					    m_buffer.add(initTableInsert.toString());
+					    m_buffer.append(initTableInsert.toString());
 					}
 					else {
-						m_buffer.add(");\n").add(
-								StringUtils.getUnLockStatement(tableName)).add("\n");
-					}
-
-					if (m_buffer.isFull()) {
-						synchronized (BufferManager.BUFFER_TOKEN) {
-							BufferManager.BUFFER_TOKEN.notify();
-							BufferManager.BUFFER_TOKEN.wait();
-						}
+						m_buffer.append(");\n").append(
+								StringUtils.getUnLockStatement(tableName)).append("\n");
 					}
 				}
 			} catch (SQLException e) {
 				LOGGER.error(e.getMessage(), e);
-			} catch (InterruptedException e) {
-				LOGGER.error(DatabaseReader.class.getName()
-						+ ": Database Reader interrupted - exiting.");
-				return;
-			} finally {
+			}finally {
 				if (resultSet != null)
 					try {
 						resultSet.close();
@@ -259,10 +256,7 @@ public class DatabaseReader implements IDatabaseReader, Runnable {
 			}
 		}
 		// reading from derby database is complete.
-		BufferManager.setReadingComplete(true);
-		synchronized (BufferManager.BUFFER_TOKEN) {
-			BufferManager.BUFFER_TOKEN.notify();
-		}
+		LOGGER.debug("Write complete. Dump created!");
 	}
 
 	/**

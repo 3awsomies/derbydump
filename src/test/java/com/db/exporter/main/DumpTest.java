@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.io.StringReader;
+import java.nio.charset.Charset;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
@@ -19,10 +20,9 @@ import org.junit.Test;
 import com.db.exporter.config.Configuration;
 import com.db.exporter.utils.DBConnectionManager;
 import com.db.exporter.utils.HexUtils;
+import com.db.exporter.utils.IOUtils;
 import com.db.exporter.utils.StringUtils;
-import com.db.exporter.writer.BufferManager;
 import com.db.exporter.writer.DatabaseReader;
-import com.db.exporter.writer.FileWriter;
 
 public class DumpTest {
 
@@ -90,15 +90,13 @@ public class DumpTest {
 
 	@Test
 	public void test() throws Exception {
-		Thread reader = new Thread(new DatabaseReader(config,
-				BufferManager.getBufferInstance()), "Database_reader");
-		Thread writer = new Thread(new FileWriter(config,
-				BufferManager.getBufferInstance()), "File_Writer");
+		Thread single = new Thread(new DatabaseReader(config,IOUtils.getWriter(new File(config.getDumpFilePath()), config.maxBufferSize()) ), "Database_reader");
+		single.run();
 
-		reader.start();
-		writer.start();
-
+		single.start();
+		//Give time to thread to write
 		Thread.sleep(2000);
+		
 		File file = new File(config.getDumpFilePath());
 
 		StringBuilder sb = new StringBuilder();
@@ -132,9 +130,9 @@ public class DumpTest {
 	    assertEquals("failure In converting byte to HEX",expected, actual);
 	    String chineseString = "中國全國人大、政協「兩會」綜合報導 Read more:";
 	    String expectedChi = "E4B8ADE59C8BE585A8E59C8BE4BABAE5A4A7E38081E694BFE58D94E3808CE585A9E69C83E3808DE7B69CE59088E5A0B1E5B08E2052656164206D6F72653A";
-	    byte[] bytesChi = chineseString.getBytes();
+	    byte[] bytesChi = chineseString.getBytes(Charset.forName("UTF-8"));
 	    String actualChi = HexUtils.bytesToString(bytesChi);
-	    //assertEquals("failure In converting byte to HEX For Chinese",expectedChi, actualChi);
+	    assertEquals("failure In converting byte to HEX For Chinese",expectedChi, actualChi);
 	}
 	
 	@AfterClass
